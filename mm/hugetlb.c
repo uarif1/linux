@@ -1947,7 +1947,8 @@ static void prep_new_hugetlb_folio(struct hstate *h, struct folio *folio, int ni
 }
 
 static bool __prep_compound_gigantic_folio(struct folio *folio,
-					unsigned int order, bool demote)
+					unsigned int order, bool demote,
+					bool hugetlb_vmemmap_optimizable)
 {
 	int i, j;
 	int nr_pages = 1 << order;
@@ -1957,6 +1958,14 @@ static bool __prep_compound_gigantic_folio(struct folio *folio,
 	__folio_set_head(folio);
 	/* we rely on prep_new_hugetlb_folio to set the destructor */
 	folio_set_compound_order(folio, order);
+
+	/*
+	 * No need to prep pages that will be freed later by hugetlb_vmemmap_optimize
+	 * in prep_new_huge_page. Hence, reduce nr_pages to the pages that will be kept.
+	 */
+	if (hugetlb_vmemmap_optimizable)
+		nr_pages = HUGETLB_VMEMMAP_RESERVE_SIZE / sizeof(struct page);
+
 	for (i = 0; i < nr_pages; i++) {
 		p = folio_page(folio, i);
 
@@ -2026,15 +2035,15 @@ out_error:
 }
 
 static bool prep_compound_gigantic_folio(struct folio *folio,
-							unsigned int order)
+							unsigned int order, bool hugetlb_vmemmap_optimizable)
 {
-	return __prep_compound_gigantic_folio(folio, order, false);
+	return __prep_compound_gigantic_folio(folio, order, false, hugetlb_vmemmap_optimizable);
 }
 
 static bool prep_compound_gigantic_folio_for_demote(struct folio *folio,
-							unsigned int order)
+							unsigned int order, bool hugetlb_vmemmap_optimizable)
 {
-	return __prep_compound_gigantic_folio(folio, order, true);
+	return __prep_compound_gigantic_folio(folio, order, true, hugetlb_vmemmap_optimizable);
 }
 
 /*
@@ -2185,7 +2194,8 @@ retry:
 	if (!folio)
 		return NULL;
 	if (hstate_is_gigantic(h)) {
-		if (!prep_compound_gigantic_folio(folio, huge_page_order(h))) {
+		if (!prep_compound_gigantic_folio(folio, huge_page_order(h),
+							 vmemmap_should_optimize(h, &folio->page))) {
 			/*
 			 * Rare failure to convert pages to compound page.
 			 * Free pages and try again - ONCE!
@@ -3197,7 +3207,8 @@ static void __init gather_bootmem_prealloc(void)
 
 		VM_BUG_ON(!hstate_is_gigantic(h));
 		WARN_ON(folio_ref_count(folio) != 1);
-		if (prep_compound_gigantic_folio(folio, huge_page_order(h))) {
+		if (prep_compound_gigantic_folio(folio, huge_page_order(h),
+						vmemmap_should_optimize(h, page))) {
 			WARN_ON(folio_test_reserved(folio));
 			prep_new_hugetlb_folio(h, folio, folio_nid(folio));
 			free_huge_page(page); /* add to the hugepage allocator */
@@ -3621,7 +3632,8 @@ static int demote_free_huge_page(struct hstate *h, struct page *page)
 		folio = page_folio(subpage);
 		if (hstate_is_gigantic(target_hstate))
 			prep_compound_gigantic_folio_for_demote(folio,
-							target_hstate->order);
+							target_hstate->order,
+							vmemmap_should_optimize(target_hstate, subpage));
 		else
 			prep_compound_page(subpage, target_hstate->order);
 		set_page_private(subpage, 0);
