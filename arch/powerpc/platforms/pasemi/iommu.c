@@ -201,7 +201,7 @@ static int __init iob_init(struct device_node *dn)
 	/* For 2G space, 8x64 pages (2^21 bytes) is max total l2 size */
 	iob_l2_base = memblock_alloc_try_nid_raw(1UL << 21, 1UL << 21,
 					MEMBLOCK_LOW_LIMIT, 0x80000000,
-					NUMA_NO_NODE);
+					NUMA_NO_NODE, false);
 	if (!iob_l2_base)
 		panic("%s: Failed to allocate %lu bytes align=0x%lx max_addr=%x\n",
 		      __func__, 1UL << 21, 1UL << 21, 0x80000000);

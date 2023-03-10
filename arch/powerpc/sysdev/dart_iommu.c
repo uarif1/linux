@@ -239,7 +239,7 @@ static void __init allocate_dart(void)
 	 */
 	dart_tablebase = memblock_alloc_try_nid_raw(SZ_16M, SZ_16M,
 					MEMBLOCK_LOW_LIMIT, SZ_2G,
-					NUMA_NO_NODE);
+					NUMA_NO_NODE, false);
 	if (!dart_tablebase)
 		panic("Failed to allocate 16MB below 2GB for DART table\n");
 

@@ -7046,7 +7046,7 @@ void __init *memmap_alloc(phys_addr_t size, phys_addr_t align,
 	else
 		ptr = memblock_alloc_try_nid_raw(size, align, min_addr,
 						 MEMBLOCK_ALLOC_ACCESSIBLE,
-						 nid);
+						 nid, false);
 
 	if (ptr && size > 0)
 		page_init_poison(ptr, size);

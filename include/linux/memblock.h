@@ -47,6 +47,7 @@ enum memblock_flags {
 	MEMBLOCK_MIRROR		= 0x2,	/* mirrored region */
 	MEMBLOCK_NOMAP		= 0x4,	/* don't add to kernel direct mapping */
 	MEMBLOCK_DRIVER_MANAGED = 0x8,	/* always detected via a driver */
+	MEMBLOCK_NOINIT		= 0x10,	/* Do not initialize the region */
 };
 
 /**
@@ -401,7 +402,7 @@ phys_addr_t memblock_phys_alloc_range(phys_addr_t size, phys_addr_t align,
 				      phys_addr_t start, phys_addr_t end);
 phys_addr_t memblock_alloc_range_nid(phys_addr_t size,
 				      phys_addr_t align, phys_addr_t start,
-				      phys_addr_t end, int nid, bool exact_nid);
+				      phys_addr_t end, int nid, bool exact_nid, bool no_init);
 phys_addr_t memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t align, int nid);
 
 static __always_inline phys_addr_t memblock_phys_alloc(phys_addr_t size,
@@ -416,7 +417,7 @@ void *memblock_alloc_exact_nid_raw(phys_addr_t size, phys_addr_t align,
 				 int nid);
 void *memblock_alloc_try_nid_raw(phys_addr_t size, phys_addr_t align,
 				 phys_addr_t min_addr, phys_addr_t max_addr,
-				 int nid);
+				 int nid, bool no_init);
 void *memblock_alloc_try_nid(phys_addr_t size, phys_addr_t align,
 			     phys_addr_t min_addr, phys_addr_t max_addr,
 			     int nid);
@@ -432,7 +433,7 @@ static inline void *memblock_alloc_raw(phys_addr_t size,
 {
 	return memblock_alloc_try_nid_raw(size, align, MEMBLOCK_LOW_LIMIT,
 					  MEMBLOCK_ALLOC_ACCESSIBLE,
-					  NUMA_NO_NODE);
+					  NUMA_NO_NODE, false);
 }
 
 static inline void *memblock_alloc_from(phys_addr_t size,

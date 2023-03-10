@@ -159,7 +159,7 @@ static void __init fwnmi_init(void)
 	 */
 	mce_data_buf = memblock_alloc_try_nid_raw(RTAS_ERROR_LOG_MAX * nr_cpus,
 					RTAS_ERROR_LOG_MAX, MEMBLOCK_LOW_LIMIT,
-					ppc64_rma_size, NUMA_NO_NODE);
+					ppc64_rma_size, NUMA_NO_NODE, false);
 	if (!mce_data_buf)
 		panic("Failed to allocate %d bytes below %pa for MCE buffer\n",
 		      RTAS_ERROR_LOG_MAX * nr_cpus, &ppc64_rma_size);
@@ -175,7 +175,7 @@ static void __init fwnmi_init(void)
 		size = sizeof(struct slb_entry) * mmu_slb_size * nr_cpus;
 		slb_ptr = memblock_alloc_try_nid_raw(size,
 				sizeof(struct slb_entry), MEMBLOCK_LOW_LIMIT,
-				ppc64_rma_size, NUMA_NO_NODE);
+				ppc64_rma_size, NUMA_NO_NODE, false);
 		if (!slb_ptr)
 			panic("Failed to allocate %zu bytes below %pa for slb area\n",
 			      size, &ppc64_rma_size);

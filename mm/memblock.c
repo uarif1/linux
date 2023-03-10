@@ -860,6 +860,30 @@ int __init_memblock memblock_reserve(phys_addr_t base, phys_addr_t size)
 	return memblock_add_range(&memblock.reserved, base, size, MAX_NUMNODES, 0);
 }
 
+
+/**
+ * memblock_reserve_flags - add new memblock region
+ * @base: base address of the new region
+ * @size: size of the new region
+ * @flags: flags of the new region
+ *
+ * Add new memblock region [@base, @base + @size) to the "memory"
+ * type. See memblock_add_range() description for mode details
+ *
+ * Return:
+ * 0 on success, -errno on failure.
+ */
+int __init_memblock memblock_reserve_flags(phys_addr_t base, phys_addr_t size,
+				     enum memblock_flags flags)
+{
+	phys_addr_t end = base + size - 1;
+
+	memblock_dbg("%s: [%pa-%pa] flags=%x %pS\n", __func__,
+		     &base, &end, flags, (void *)_RET_IP_);
+
+	return memblock_add_range(&memblock.reserved, base, size, MAX_NUMNODES, flags);
+}
+
 #ifdef CONFIG_HAVE_MEMBLOCK_PHYS_MAP
 int __init_memblock memblock_physmem_add(phys_addr_t base, phys_addr_t size)
 {
@@ -1352,6 +1376,7 @@ __next_mem_pfn_range_in_zone(u64 *idx, struct zone *zone,
  * @end: the upper bound of the memory region to allocate (phys address)
  * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
  * @exact_nid: control the allocation fall back to other nodes
+ * @no_init: do not initialize struct pages for this region
  *
  * The allocation is performed from memory region limited by
  * memblock.current_limit if @end == %MEMBLOCK_ALLOC_ACCESSIBLE.
@@ -1372,7 +1397,7 @@ __next_mem_pfn_range_in_zone(u64 *idx, struct zone *zone,
 phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
 					phys_addr_t align, phys_addr_t start,
 					phys_addr_t end, int nid,
-					bool exact_nid)
+					bool exact_nid, bool no_init)
 {
 	enum memblock_flags flags = choose_memblock_flags();
 	phys_addr_t found;
@@ -1389,14 +1414,14 @@ phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
 again:
 	found = memblock_find_in_range_node(size, align, start, end, nid,
 					    flags);
-	if (found && !memblock_reserve(found, size))
+	if (found && !memblock_reserve_flags(found, size, no_init ? MEMBLOCK_NOINIT : 0))
 		goto done;
 
 	if (nid != NUMA_NO_NODE && !exact_nid) {
 		found = memblock_find_in_range_node(size, align, start,
 						    end, NUMA_NO_NODE,
 						    flags);
-		if (found && !memblock_reserve(found, size))
+		if (found && !memblock_reserve_flags(found, size, no_init ? MEMBLOCK_NOINIT : 0))
 			goto done;
 	}
 
@@ -1447,7 +1472,7 @@ phys_addr_t __init memblock_phys_alloc_range(phys_addr_t size,
 		     __func__, (u64)size, (u64)align, &start, &end,
 		     (void *)_RET_IP_);
 	return memblock_alloc_range_nid(size, align, start, end, NUMA_NO_NODE,
-					false);
+					false, false);
 }
 
 /**
@@ -1466,7 +1491,7 @@ phys_addr_t __init memblock_phys_alloc_range(phys_addr_t size,
 phys_addr_t __init memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t align, int nid)
 {
 	return memblock_alloc_range_nid(size, align, 0,
-					MEMBLOCK_ALLOC_ACCESSIBLE, nid, false);
+					MEMBLOCK_ALLOC_ACCESSIBLE, nid, false, false);
 }
 
 /**
@@ -1477,6 +1502,7 @@ phys_addr_t __init memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t ali
  * @max_addr: the upper bound of the memory region to allocate (phys address)
  * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
  * @exact_nid: control the allocation fall back to other nodes
+ * @no_init: Do not initialize struct pages for this region
  *
  * Allocates memory block using memblock_alloc_range_nid() and
  * converts the returned physical address to virtual.
@@ -1492,7 +1518,7 @@ phys_addr_t __init memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t ali
 static void * __init memblock_alloc_internal(
 				phys_addr_t size, phys_addr_t align,
 				phys_addr_t min_addr, phys_addr_t max_addr,
-				int nid, bool exact_nid)
+				int nid, bool exact_nid, bool no_init)
 {
 	phys_addr_t alloc;
 
@@ -1508,12 +1534,12 @@ static void * __init memblock_alloc_internal(
 		max_addr = memblock.current_limit;
 
 	alloc = memblock_alloc_range_nid(size, align, min_addr, max_addr, nid,
-					exact_nid);
+					exact_nid, no_init);
 
 	/* retry allocation without lower limit */
 	if (!alloc && min_addr)
 		alloc = memblock_alloc_range_nid(size, align, 0, max_addr, nid,
-						exact_nid);
+						exact_nid, no_init);
 
 	if (!alloc)
 		return NULL;
@@ -1549,7 +1575,7 @@ void * __init memblock_alloc_exact_nid_raw(
 		     &max_addr, (void *)_RET_IP_);
 
 	return memblock_alloc_internal(size, align, min_addr, max_addr, nid,
-				       true);
+				       true, false);
 }
 
 /**
@@ -1563,7 +1589,8 @@ void * __init memblock_alloc_exact_nid_raw(
  *	      is preferred (phys address), or %MEMBLOCK_ALLOC_ACCESSIBLE to
  *	      allocate only from memory limited by memblock.current_limit value
  * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
- *
+ * @no_init: do not initialize struct pages for this region
+ * 
  * Public function, provides additional debug information (including caller
  * info), if enabled. Does not zero allocated memory, does not panic if request
  * cannot be satisfied.
@@ -1574,14 +1601,14 @@ void * __init memblock_alloc_exact_nid_raw(
 void * __init memblock_alloc_try_nid_raw(
 			phys_addr_t size, phys_addr_t align,
 			phys_addr_t min_addr, phys_addr_t max_addr,
-			int nid)
+			int nid, bool no_init)
 {
 	memblock_dbg("%s: %llu bytes align=0x%llx nid=%d from=%pa max_addr=%pa %pS\n",
 		     __func__, (u64)size, (u64)align, nid, &min_addr,
 		     &max_addr, (void *)_RET_IP_);
 
 	return memblock_alloc_internal(size, align, min_addr, max_addr, nid,
-				       false);
+				       false, no_init);
 }
 
 /**
@@ -1612,7 +1639,7 @@ void * __init memblock_alloc_try_nid(
 		     __func__, (u64)size, (u64)align, nid, &min_addr,
 		     &max_addr, (void *)_RET_IP_);
 	ptr = memblock_alloc_internal(size, align,
-					   min_addr, max_addr, nid, false);
+					   min_addr, max_addr, nid, false, false);
 	if (ptr)
 		memset(ptr, 0, size);
 

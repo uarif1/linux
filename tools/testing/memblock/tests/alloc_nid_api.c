@@ -43,7 +43,7 @@ static inline void *run_memblock_alloc_nid(phys_addr_t size,
 						    max_addr, nid);
 	if (alloc_nid_test_flags & TEST_F_RAW)
 		return memblock_alloc_try_nid_raw(size, align, min_addr,
-						  max_addr, nid);
+						  max_addr, nid, false);
 	return memblock_alloc_try_nid(size, align, min_addr, max_addr, nid);
 }
 

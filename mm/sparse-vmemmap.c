@@ -43,7 +43,7 @@ static void * __ref __earlyonly_bootmem_alloc(int node,
 				unsigned long goal)
 {
 	return memblock_alloc_try_nid_raw(size, align, goal,
-					       MEMBLOCK_ALLOC_ACCESSIBLE, node);
+					       MEMBLOCK_ALLOC_ACCESSIBLE, node, false);
 }
 
 void * __meminit vmemmap_alloc_block(unsigned long size, int node)
