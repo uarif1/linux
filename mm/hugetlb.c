@@ -3199,6 +3199,7 @@ found:
 static void __init gather_bootmem_prealloc(void)
 {
 	struct huge_bootmem_page *m;
+	phys_addr_t start, end;
 
 	list_for_each_entry(m, &huge_boot_pages, list) {
 		struct page *page = virt_to_page(m);
@@ -3206,6 +3207,11 @@ static void __init gather_bootmem_prealloc(void)
 		struct hstate *h = m->hstate;
 
 		VM_BUG_ON(!hstate_is_gigantic(h));
+		if (hugetlb_vmemmap_optimizable(h)) {
+			start = __pfn_to_phys(page_to_pfn(&folio->page));
+			end = start +  HUGETLB_VMEMMAP_RESERVE_SIZE * sizeof(struct page);
+			reserve_bootmem_region(start, end, true);
+		}
 		WARN_ON(folio_ref_count(folio) != 1);
 		if (prep_compound_gigantic_folio(folio, huge_page_order(h),
 						vmemmap_should_optimize(h, page))) {

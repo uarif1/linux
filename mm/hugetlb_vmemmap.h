@@ -58,4 +58,7 @@ static inline bool hugetlb_vmemmap_optimizable(const struct hstate *h)
 	return hugetlb_vmemmap_optimizable_size(h) != 0;
 }
 bool vmemmap_should_optimize(const struct hstate *h, const struct page *head);
+
+extern bool vmemmap_optimize_enabled;
+
 #endif /* _LINUX_HUGETLB_VMEMMAP_H */

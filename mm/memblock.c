@@ -21,6 +21,7 @@
 #include <linux/io.h>
 
 #include "internal.h"
+#include "hugetlb_vmemmap.h"
 
 #define INIT_MEMBLOCK_REGIONS			128
 #define INIT_PHYSMEM_REGIONS			4
@@ -2087,18 +2088,22 @@ static void __init memmap_init_reserved_pages(void)
 {
 	struct memblock_region *region;
 	phys_addr_t start, end;
-	u64 i;
 
 	/* initialize struct pages for the reserved regions */
-	for_each_reserved_mem_range(i, &start, &end)
-		reserve_bootmem_region(start, end);
+	for_each_reserved_mem_region(region) {
+		if (!(memblock_is_noinit(region) && vmemmap_optimize_enabled)) {
+			start = region->base;
+			end = start + region->size;
+			reserve_bootmem_region(start, end, false);
+		}
+	}
 
 	/* and also treat struct pages for the NOMAP regions as PageReserved */
 	for_each_mem_region(region) {
 		if (memblock_is_nomap(region)) {
 			start = region->base;
 			end = start + region->size;
-			reserve_bootmem_region(start, end);
+			reserve_bootmem_region(start, end, false);
 		}
 	}
 }
