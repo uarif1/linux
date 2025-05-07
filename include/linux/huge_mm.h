@@ -184,10 +184,13 @@ static inline bool hugepage_global_enabled(void)
 			(1<<TRANSPARENT_HUGEPAGE_REQ_MADV_FLAG));
 }
 
-static inline bool hugepage_global_always(void)
+static inline bool hugepage_always(unsigned long flags)
 {
-	return transparent_hugepage_flags &
-			(1<<TRANSPARENT_HUGEPAGE_FLAG);
+	if (!!test_bit(MMF2_THP_MADVISE, &flags))
+		return false;
+
+	return !!test_bit(MMF2_THP_ALWAYS, &flags) || (transparent_hugepage_flags &
+			(1<<TRANSPARENT_HUGEPAGE_FLAG));
 }
 
 static inline int highest_order(unsigned long orders)
@@ -292,7 +295,7 @@ unsigned long thp_vma_allowable_orders(struct vm_area_struct *vma,
 
 		if (vm_flags & VM_HUGEPAGE)
 			mask |= READ_ONCE(huge_anon_orders_madvise);
-		if (hugepage_global_always() ||
+		if (hugepage_always(vma->vm_mm->flags2) ||
 		    ((vm_flags & VM_HUGEPAGE) && hugepage_global_enabled()))
 			mask |= READ_ONCE(huge_anon_orders_inherit);
 

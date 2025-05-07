@@ -177,7 +177,7 @@ unsigned long __thp_vma_allowable_orders(struct vm_area_struct *vma,
 		 */
 		if (enforce_sysfs &&
 		    (!hugepage_global_enabled() || (!(vm_flags & VM_HUGEPAGE) &&
-						    !hugepage_global_always())))
+						    !hugepage_always(vma->vm_mm->flags2))))
 			return 0;
 
 		/*

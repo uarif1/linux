@@ -2658,6 +2658,39 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			clear_bit(MMF_DISABLE_THP, &me->mm->flags);
 		mmap_write_unlock(me->mm);
 		break;
+	case PR_GET_THP_POLICY:
+		if (arg2 || arg3 || arg4 || arg5)
+			return -EINVAL;
+		if (!!test_bit(MMF2_THP_ALWAYS, &me->mm->flags2))
+			error = PR_THP_POLICY_ALWAYS;
+		else if (!!test_bit(MMF2_THP_MADVISE, &me->mm->flags2))
+			error = PR_THP_POLICY_MADVISE;
+		else
+			error = PR_THP_POLICY_SYSTEM;
+		break;
+	case PR_SET_THP_POLICY:
+		if (arg3 || arg4 || arg5)
+			return -EINVAL;
+		if (mmap_write_lock_killable(me->mm))
+			return -EINTR;
+		switch (arg2) {
+		case PR_THP_POLICY_SYSTEM:
+			clear_bit(MMF2_THP_ALWAYS, &me->mm->flags2);
+			clear_bit(MMF2_THP_MADVISE, &me->mm->flags2);
+		break;
+		case PR_THP_POLICY_ALWAYS:
+			set_bit(MMF2_THP_ALWAYS, &me->mm->flags2);
+			clear_bit(MMF2_THP_MADVISE, &me->mm->flags2);
+			break;
+		case PR_THP_POLICY_MADVISE:
+			clear_bit(MMF2_THP_ALWAYS, &me->mm->flags2);
+			set_bit(MMF2_THP_MADVISE, &me->mm->flags2);
+			break;
+		default:
+			return -EINVAL;
+		}
+		mmap_write_unlock(me->mm);
+		break;
 	case PR_MPX_ENABLE_MANAGEMENT:
 	case PR_MPX_DISABLE_MANAGEMENT:
 		/* No longer implemented: */
